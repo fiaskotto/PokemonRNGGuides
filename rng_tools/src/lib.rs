@@ -1,5 +1,5 @@
 #[allow(clippy::too_many_arguments)]
-pub mod generators;
+mod generators;
 mod id;
 mod ivs;
 mod pkm;
