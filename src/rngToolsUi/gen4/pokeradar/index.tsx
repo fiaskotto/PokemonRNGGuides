@@ -1,9 +1,10 @@
 import React from "react";
-import { sortBy } from "lodash-es";
+import { sortBy, uniq, uniqBy } from "lodash-es";
 import { z } from "zod";
 import {
   FormikNumberInput,
   FormikSelect,
+  FormikRadio,
   FormikSwitch,
   MinMaxContainer,
   ResultColumn,
@@ -38,7 +39,6 @@ import { RustOption } from "~/types";
 import { toOptions } from "~/utils/options";
 import { leadAbilities } from "../gen4types";
 import { DpPt, Gen3GameVersions } from "~/types/games";
-import { Encounter } from "~/rngToolsUi/gen4/encounters/encounter";
 import { getEncounters } from "~/rngToolsUi/gen4/encounters/wild";
 
 const BATTLE_RESULTS = ["Catch", "Win"] as const satisfies BattleResult[];
@@ -103,6 +103,7 @@ const Validator = z
     maxAdvancePatch: z.number().int().min(0),
     route: z.enum(ALLOWED_ROUTES),
     species: z.enum(species),
+    level: z.number().int().min(1).max(100),
     timeOfDay: z.enum(TIMES),
     swarmActive: z.boolean(),
     dualSlotGame: z.enum(Gen3GameVersions).nullable(),
@@ -126,6 +127,7 @@ const initialValues: FormState = {
   maxAdvancePatch: 400,
   route: "Acuity Lakefront",
   species: "Snover",
+  level: 5,
   timeOfDay: "day",
   swarmActive: false,
   dualSlotGame: null,
@@ -206,40 +208,31 @@ const FormContent = () => {
       },
     });
 
-  const [resolvedSpecies, setResolvedSpecies] = React.useState<Encounter[]>([]);
+  const encounters =
+    game == null || route == null || timeOfDay == null || swarmActive == null
+      ? []
+      : getEncounters({
+          game,
+          location: route,
+          timeOfDay,
+          swarmActive,
+          dualSlotCartridge: dualSlotGame ?? null,
+          radarActive: false,
+        });
 
-  React.useEffect(() => {
-    if (
-      game == null ||
-      route == null ||
-      timeOfDay == null ||
-      swarmActive == null ||
-      dualSlotGame == null
-    ) {
-      setResolvedSpecies([]);
-      return;
-    }
-
-    const encounters = getEncounters({
-      game,
-      location: route,
-      timeOfDay,
-      swarmActive,
-      dualSlotCartridge: dualSlotGame,
-      radarActive: false,
-    });
-
-    setResolvedSpecies(encounters);
-  }, [game, route, timeOfDay, swarmActive, dualSlotGame]);
-
-  const speciesOptions = React.useMemo(
-    () =>
-      resolvedSpecies.map(({ species }) => ({
-        label: formatSpeciesLabel(species),
-        value: species,
-      })),
-    [resolvedSpecies],
+  const encounterLevels = encounters
+    .filter((enc) => enc.species === species)
+    .flatMap((enc) => [enc.minLevel, enc.maxLevel]);
+  const levelOptions = sortBy(
+    toOptions(uniq(encounterLevels)),
+    (opt) => opt.label,
   );
+
+  const uniqueSpecies = uniqBy(encounters, ({ species }) => species);
+  const speciesOptions = uniqueSpecies.map(({ species }) => ({
+    label: formatSpeciesLabel(species),
+    value: species,
+  }));
 
   const staticFields: Field[] = [
     {
@@ -305,6 +298,10 @@ const FormContent = () => {
           options={speciesOptions}
         />
       ),
+    },
+    {
+      label: "Level",
+      input: <FormikRadio<FormState> name="level" options={levelOptions} />,
     },
     {
       label: "Lead",
@@ -401,25 +398,13 @@ export const PokeRadar4ShinySearcher = () => {
   );
 
   const onSubmit: RngToolSubmit<FormState> = async (opts) => {
-    const resolvedSpecies = getEncounters({
-      game: opts.game,
-      location: opts.route,
-      timeOfDay: opts.timeOfDay,
-      swarmActive: opts.swarmActive,
-      dualSlotCartridge: opts.dualSlotGame,
-      radarActive: false,
-    });
-    const encounter = resolvedSpecies.find(
-      ({ species }) => species === opts.species,
-    );
-
     const baseSearch: Omit<RustOption<SearchStatic4Opts>, "filter"> = {
       tid: opts.tid,
       sid: opts.sid,
       species: opts.species,
       offset: 0,
-      encounter_min_level: encounter?.minLevel ?? 1,
-      encounter_max_level: encounter?.maxLevel ?? 100,
+      encounter_min_level: opts.level,
+      encounter_max_level: opts.level,
       min_advance: opts.minAdvanceSpread,
       max_advance: opts.maxAdvanceSpread,
       min_delay: opts.minDelay,
