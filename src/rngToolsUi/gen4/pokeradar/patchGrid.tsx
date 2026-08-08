@@ -4,21 +4,15 @@ import {
   rngTools,
   Patch,
   PokeRadarPatch,
-  ShakeType,
   BattleResult,
+  ShakeType,
 } from "~/rngTools";
 import { toOptions } from "~/utils/options";
 import { PokeRadarPatches } from "~/rngToolsUi/gen6/xyPokeRadar/patch";
+import { BATTLE_RESULTS, SHAKE_TYPES } from "./constants";
 
-const BATTLE_RESULT_OPTIONS = toOptions([
-  "Catch",
-  "Win",
-] as const satisfies BattleResult[]);
-
-const SHAKE_TYPE_OPTIONS = toOptions([
-  "Slow",
-  "Fast",
-] as const satisfies ShakeType[]);
+const BATTLE_RESULT_OPTIONS = toOptions(BATTLE_RESULTS);
+const SHAKE_TYPE_OPTIONS = toOptions(SHAKE_TYPES);
 
 const toGridPatchFormat = (patches: Patch[]): PokeRadarPatch[] =>
   patches.map((patch) => ({

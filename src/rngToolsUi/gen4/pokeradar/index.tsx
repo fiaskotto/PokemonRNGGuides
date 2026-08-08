@@ -22,7 +22,6 @@ import {
   SearchStatic4Opts,
   RadarShinyPatchResult,
   Patch,
-  BattleResult,
 } from "~/rngTools";
 import { formatSpeciesLabel, species } from "~/types/species";
 import { useWatch } from "~/hooks/form";
@@ -41,54 +40,7 @@ import { leadAbilities } from "../gen4types";
 import { DpPt, Gen3GameVersions } from "~/types/games";
 import { getEncounters } from "~/rngToolsUi/gen4/encounters/wild";
 import { ivColumns } from "~/rngToolsUi/shared/ivColumns";
-
-const BATTLE_RESULTS = ["Catch", "Win"] as const satisfies BattleResult[];
-const TIMES = ["day", "night"] as const;
-
-const ALLOWED_ROUTES = [
-  "Valley Windworks",
-  "Eterna Forest",
-  "Fuego Ironworks",
-  "Mt. Coronet Summit",
-  "Stark Mountain",
-  "Sendoff Spring",
-  "Trophy Garden",
-  "Lake Valor",
-  "Lake Acuity",
-  "Valor Lakefront",
-  "Acuity Lakefront",
-  "Route 201",
-  "Route 202",
-  "Route 203",
-  "Route 204 (South)",
-  "Route 205 (South)",
-  "Route 205 (North)",
-  "Route 206",
-  "Route 207",
-  "Route 208",
-  "Route 209",
-  "Route 210 (South)",
-  "Route 210 (North)",
-  "Route 211 (West)",
-  "Route 211 (East)",
-  "Route 212 (North)",
-  "Route 212 (South)",
-  "Route 213",
-  "Route 214",
-  "Route 215",
-  "Route 216",
-  "Route 217",
-  "Route 218",
-  "Route 221",
-  "Route 222",
-  "Route 224",
-  "Route 225",
-  "Route 226",
-  "Route 227",
-  "Route 228",
-  "Route 229",
-  "Route 230",
-] as const;
+import { BATTLE_RESULTS, TIMES, POKERADAR_ROUTES } from "./constants";
 
 const Validator = z
   .object({
@@ -102,7 +54,7 @@ const Validator = z
     maxAdvanceSpread: z.number().int().min(0),
     minAdvancePatch: z.number().int().min(0),
     maxAdvancePatch: z.number().int().min(0),
-    route: z.enum(ALLOWED_ROUTES),
+    route: z.enum(POKERADAR_ROUTES),
     species: z.enum(species),
     level: z.number().int().min(1).max(100),
     timeOfDay: z.enum(TIMES),
@@ -253,7 +205,7 @@ const FormContent = () => {
       input: (
         <FormikSelect<FormState, "route">
           name="route"
-          options={sortBy(toOptions(ALLOWED_ROUTES), (opt) => opt.label)}
+          options={sortBy(toOptions(POKERADAR_ROUTES), (opt) => opt.label)}
         />
       ),
     },
@@ -363,7 +315,7 @@ const FormContent = () => {
       input: (
         <FormikSelect<FormState, "battleResult">
           name="battleResult"
-          options={toOptions([...BATTLE_RESULTS])}
+          options={toOptions(BATTLE_RESULTS)}
         />
       ),
     },
