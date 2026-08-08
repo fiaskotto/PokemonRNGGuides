@@ -12,7 +12,6 @@ mod stationary;
 mod step_calculator;
 mod swarm;
 mod voltorb_flip;
-pub mod wild;
 
 pub use egg::*;
 pub use game::*;
@@ -23,4 +22,3 @@ pub use pokeradar::*;
 pub use stationary::*;
 pub use swarm::*;
 pub use voltorb_flip::*;
-pub use wild::*;
