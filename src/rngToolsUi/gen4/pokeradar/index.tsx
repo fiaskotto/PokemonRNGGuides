@@ -40,6 +40,7 @@ import { toOptions } from "~/utils/options";
 import { leadAbilities } from "../gen4types";
 import { DpPt, Gen3GameVersions } from "~/types/games";
 import { getEncounters } from "~/rngToolsUi/gen4/encounters/wild";
+import { ivColumns } from "~/rngToolsUi/shared/ivColumns";
 
 const BATTLE_RESULTS = ["Catch", "Win"] as const satisfies BattleResult[];
 const TIMES = ["day", "night"] as const;
@@ -145,11 +146,10 @@ type ResultRow = {
   nature: Nature;
   ability: AbilityType;
   gender: Gender;
-  ivs: Ivs;
   level: number;
   delay: number;
   patches: Patch[];
-};
+} & Ivs;
 
 const toResultRow = (result: RadarShinyPatchResult): ResultRow => ({
   key: `${result.state.seed}-${result.patch_advance}`,
@@ -160,7 +160,7 @@ const toResultRow = (result: RadarShinyPatchResult): ResultRow => ({
   nature: result.state.nature,
   ability: result.state.ability,
   gender: result.state.gender,
-  ivs: result.state.ivs,
+  ...result.state.ivs,
   level: result.state.level,
   delay: result.seed_time.delay,
   patches: result.patches,
@@ -185,12 +185,7 @@ const columns: ResultColumn<ResultRow>[] = [
   { title: "Nature", dataIndex: "nature" },
   { title: "Ability", dataIndex: "ability" },
   { title: "Gender", dataIndex: "gender" },
-  {
-    title: "IVs",
-    dataIndex: "ivs",
-    render: (ivs: Ivs) =>
-      `${ivs.hp}/${ivs.atk}/${ivs.def}/${ivs.spa}/${ivs.spd}/${ivs.spe}`,
-  },
+  ...ivColumns,
   { title: "Level", dataIndex: "level" },
 ];
 
