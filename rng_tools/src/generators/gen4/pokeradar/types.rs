@@ -1,6 +1,5 @@
 use crate::gen4::SearchStatic4Opts;
-use crate::gen4::seed_time::SeedTime4;
-use crate::gen4::stationary::BaseStatic4State;
+use crate::gen4::stationary::Static4State;
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
@@ -49,8 +48,7 @@ pub struct PokeRadar4AdvanceOpts {
 #[derive(Clone, Debug, Tsify, Serialize, Deserialize)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct RadarShinyPatchResult {
-    pub state: BaseStatic4State,
-    pub seed_time: SeedTime4,
+    pub state: Static4State,
     pub patch_advance: usize,
     pub patches: Vec<Patch>,
 }

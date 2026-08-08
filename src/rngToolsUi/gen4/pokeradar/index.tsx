@@ -1,5 +1,5 @@
 import React from "react";
-import { sortBy, uniq, uniqBy } from "lodash-es";
+import { sortBy, uniq, uniqBy, uniqueId } from "lodash-es";
 import { z } from "zod";
 import {
   FormikNumberInput,
@@ -12,6 +12,7 @@ import {
   RngToolSubmit,
   Field,
   FormFieldTable,
+  NumberInput,
 } from "~/components";
 import {
   multiWorkerRngTools,
@@ -27,6 +28,7 @@ import { formatSpeciesLabel, species } from "~/types/species";
 import { useWatch } from "~/hooks/form";
 import { useBatchedTool } from "~/hooks/useBatchedTool";
 import { chunkIvs } from "~/utils/chunkIvs";
+import { chunkRange } from "~/utils/chunkRange";
 import {
   getPkmFilterFields,
   getPkmFilterInitialValues,
@@ -41,6 +43,8 @@ import { DpPt, Gen3GameVersions } from "~/types/games";
 import { getEncounters } from "~/rngToolsUi/gen4/encounters/wild";
 import { ivColumns } from "~/rngToolsUi/shared/ivColumns";
 import { BATTLE_RESULTS, TIMES, POKERADAR_ROUTES } from "./constants";
+
+const LIMIT = 1000;
 
 const Validator = z
   .object({
@@ -103,20 +107,23 @@ type ResultRow = {
   patches: Patch[];
 } & Ivs;
 
-const toResultRow = (result: RadarShinyPatchResult): ResultRow => ({
-  key: `${result.state.seed}-${result.patch_advance}`,
-  seed: result.state.seed,
-  advance: result.state.advance,
-  patchAdvance: result.patch_advance,
-  pid: result.state.pid,
-  nature: result.state.nature,
-  ability: result.state.ability,
-  gender: result.state.gender,
-  ...result.state.ivs,
-  level: result.state.level,
-  delay: result.seed_time.delay,
-  patches: result.patches,
-});
+const toResultRow = (result: RadarShinyPatchResult): ResultRow => {
+  const spread = result.state.state;
+  return {
+    key: uniqueId(),
+    seed: spread.seed,
+    advance: spread.advance,
+    patchAdvance: result.patch_advance,
+    pid: spread.pid,
+    nature: spread.nature,
+    ability: spread.ability,
+    gender: spread.gender,
+    ...spread.ivs,
+    level: spread.level,
+    delay: result.state.seed_time.delay,
+    patches: result.patches,
+  };
+};
 
 const columns: ResultColumn<ResultRow>[] = [
   {
@@ -326,7 +333,16 @@ const FormContent = () => {
     displayShiny: false,
   });
 
-  return <FormFieldTable fields={[...staticFields, ...otherFilterFields]} />;
+  const limitField = {
+    label: "Limit",
+    input: <NumberInput disabled numType="decimal" value={LIMIT} />,
+  };
+
+  return (
+    <FormFieldTable
+      fields={[...staticFields, ...otherFilterFields, limitField]}
+    />
+  );
 };
 
 export const PokeRadar4ShinySearcher = () => {
@@ -337,6 +353,7 @@ export const PokeRadar4ShinySearcher = () => {
     cancel,
   } = useBatchedTool(multiWorkerRngTools.search_shiny_patches_range, {
     map: toResultRow,
+    limit: LIMIT,
   });
 
   const filteredResults = React.useMemo(
@@ -364,21 +381,37 @@ export const PokeRadar4ShinySearcher = () => {
     };
 
     const chunkedIvs = chunkIvs(opts.filter_min_ivs, opts.filter_max_ivs);
-    const searchOptsChunks = chunkedIvs.map(([minIvs, maxIvs]) => ({
-      search: {
-        ...baseSearch,
-        filter: {
-          ...pkmFilterFieldsToRustInput({ ...opts, filter_shiny: true }),
-          min_ivs: minIvs,
-          max_ivs: maxIvs,
+    const chunkedPatchAdvances = chunkRange(
+      [opts.minAdvancePatch, opts.maxAdvancePatch],
+      100,
+    );
+
+    const combinedChunks = chunkedIvs.flatMap(([minIvs, maxIvs]) =>
+      chunkedPatchAdvances.map(([minPatch, maxPatch]) => ({
+        minIvs,
+        maxIvs,
+        minPatch,
+        maxPatch,
+      })),
+    );
+
+    const searchOptsChunks = combinedChunks.map(
+      ({ minIvs, maxIvs, minPatch, maxPatch }) => ({
+        search: {
+          ...baseSearch,
+          filter: {
+            ...pkmFilterFieldsToRustInput({ ...opts, filter_shiny: true }),
+            min_ivs: minIvs,
+            max_ivs: maxIvs,
+          },
         },
-      },
-      patch_min_advance: opts.minAdvancePatch,
-      patch_max_advance: opts.maxAdvancePatch,
-      chain_count: opts.chainCount,
-      battle_result: opts.battleResult,
-      selected_shake: "Slow" as const,
-    }));
+        patch_min_advance: minPatch,
+        patch_max_advance: maxPatch,
+        chain_count: opts.chainCount,
+        battle_result: opts.battleResult,
+        selected_shake: "Slow" as const,
+      }),
+    );
 
     await searchShinyPatches(searchOptsChunks);
   };
