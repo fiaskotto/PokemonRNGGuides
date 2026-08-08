@@ -1,4 +1,5 @@
 import React from "react";
+import { sortBy } from "lodash-es";
 import { z } from "zod";
 import {
   FormikNumberInput,
@@ -12,7 +13,6 @@ import {
   FormFieldTable,
 } from "~/components";
 import {
-  rngTools,
   multiWorkerRngTools,
   Nature,
   Gender,
@@ -88,10 +88,6 @@ const ALLOWED_ROUTES = [
   "Route 229",
   "Route 230",
 ] as const;
-
-type AllowedRoute = (typeof ALLOWED_ROUTES)[number];
-
-const ALLOWED_ROUTES_SET = new Set<string>(ALLOWED_ROUTES);
 
 const Validator = z
   .object({
@@ -210,33 +206,6 @@ const FormContent = () => {
       },
     });
 
-  const [locations, setLocations] = React.useState<string[]>([]);
-
-  React.useEffect(() => {
-    if (game == null) {
-      return;
-    }
-
-    let cancelled = false;
-    rngTools.get_gen4_radar_locations(game).then((result: string[]) => {
-      if (!cancelled) {
-        setLocations(result);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [game]);
-
-  const routeOptions = React.useMemo(
-    () =>
-      locations
-        .filter((route): route is AllowedRoute => ALLOWED_ROUTES_SET.has(route))
-        .sort((first, second) => first.localeCompare(second))
-        .map((route) => ({ label: route, value: route })),
-    [locations],
-  );
-
   const [resolvedSpecies, setResolvedSpecies] = React.useState<Encounter[]>([]);
 
   React.useEffect(() => {
@@ -294,7 +263,10 @@ const FormContent = () => {
     {
       label: "Route",
       input: (
-        <FormikSelect<FormState, "route"> name="route" options={routeOptions} />
+        <FormikSelect<FormState, "route">
+          name="route"
+          options={sortBy(toOptions(ALLOWED_ROUTES), (opt) => opt.label)}
+        />
       ),
     },
     {
