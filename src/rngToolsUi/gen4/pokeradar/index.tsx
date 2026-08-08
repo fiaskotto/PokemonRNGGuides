@@ -1,5 +1,4 @@
 import React from "react";
-import * as tst from "ts-toolbelt";
 import { z } from "zod";
 import {
   FormikNumberInput,
@@ -15,7 +14,6 @@ import {
 import {
   rngTools,
   multiWorkerRngTools,
-  Species,
   Nature,
   Gender,
   AbilityType,
@@ -24,7 +22,6 @@ import {
   RadarShinyPatchResult,
   Patch,
   BattleResult,
-  RadarSpecies,
 } from "~/rngTools";
 import { formatSpeciesLabel, species } from "~/types/species";
 import { useWatch } from "~/hooks/form";
@@ -40,18 +37,12 @@ import { formatHex } from "~/utils/formatHex";
 import { RustOption } from "~/types";
 import { toOptions } from "~/utils/options";
 import { leadAbilities } from "../gen4types";
-import { DpPt } from "~/types/games";
+import { DpPt, Gen3GameVersions } from "~/types/games";
+import { Encounter } from "~/rngToolsUi/gen4/encounters/encounter";
+import { getEncounters } from "~/rngToolsUi/gen4/encounters/wild";
 
 const BATTLE_RESULTS = ["Catch", "Win"] as const satisfies BattleResult[];
-const TIMES = ["Day", "Night"] as const;
-const DUAL_SLOT_GAMES = [
-  "Ruby",
-  "Sapphire",
-  "Emerald",
-  "FireRed",
-  "LeafGreen",
-] as const;
-type DualSlotGame = (typeof DUAL_SLOT_GAMES)[number];
+const TIMES = ["day", "night"] as const;
 
 const ALLOWED_ROUTES = [
   "Valley Windworks",
@@ -116,10 +107,9 @@ const Validator = z
     maxAdvancePatch: z.number().int().min(0),
     route: z.enum(ALLOWED_ROUTES),
     species: z.enum(species),
-    time: z.enum(TIMES),
-    swarm: z.boolean(),
-    dualSlot: z.boolean(),
-    dualSlotGame: z.enum(DUAL_SLOT_GAMES),
+    timeOfDay: z.enum(TIMES),
+    swarmActive: z.boolean(),
+    dualSlotGame: z.enum(Gen3GameVersions).nullable(),
     chainCount: z.number().int().min(0),
     battleResult: z.enum(BATTLE_RESULTS),
   })
@@ -140,10 +130,9 @@ const initialValues: FormState = {
   maxAdvancePatch: 400,
   route: "Acuity Lakefront",
   species: "Snover",
-  time: "Day",
-  swarm: false,
-  dualSlot: false,
-  dualSlotGame: "Ruby",
+  timeOfDay: "day",
+  swarmActive: false,
+  dualSlotGame: null,
   chainCount: 40,
   battleResult: "Catch",
   ...getPkmFilterInitialValues(),
@@ -207,33 +196,16 @@ const columns: ResultColumn<ResultRow>[] = [
   { title: "Level", dataIndex: "level" },
 ];
 
-const fetchRadarSpecies = (opts: {
-  game: DpPt;
-  route: string;
-  time: (typeof TIMES)[number];
-  swarm: boolean;
-  dualSlot: boolean;
-  dualSlotGame: DualSlotGame;
-}): Promise<RadarSpecies[]> =>
-  rngTools.get_gen4_radar_species({
-    game: opts.game,
-    location: opts.route,
-    time_of_day: opts.time,
-    swarm_active: opts.swarm,
-    dual_slot_game: opts.dualSlot ? opts.dualSlotGame : null,
-  });
-
 const FormContent = () => {
-  const { game, route, species, time, swarm, dualSlot, dualSlotGame } =
+  const { game, route, species, timeOfDay, swarmActive, dualSlotGame } =
     useWatch({
       validationSchema: Validator,
       names: {
         game: true,
         route: true,
         species: true,
-        time: true,
-        swarm: true,
-        dualSlot: true,
+        timeOfDay: true,
+        swarmActive: true,
         dualSlotGame: true,
       },
     });
@@ -265,40 +237,31 @@ const FormContent = () => {
     [locations],
   );
 
-  type TempOverride = tst.O.Overwrite<RadarSpecies, { species: Species }>;
-  const [resolvedSpecies, setResolvedSpecies] = React.useState<TempOverride[]>(
-    [],
-  );
+  const [resolvedSpecies, setResolvedSpecies] = React.useState<Encounter[]>([]);
 
   React.useEffect(() => {
     if (
       game == null ||
       route == null ||
-      time == null ||
-      swarm == null ||
-      dualSlot == null ||
+      timeOfDay == null ||
+      swarmActive == null ||
       dualSlotGame == null
     ) {
       setResolvedSpecies([]);
       return;
     }
-    let cancelled = false;
-    fetchRadarSpecies({
+
+    const encounters = getEncounters({
       game,
-      route,
-      time,
-      swarm,
-      dualSlot,
-      dualSlotGame,
-    }).then((result) => {
-      if (!cancelled) {
-        setResolvedSpecies(result as unknown as TempOverride[]);
-      }
+      location: route,
+      timeOfDay,
+      swarmActive,
+      dualSlotCartridge: dualSlotGame,
+      radarActive: false,
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [game, route, time, swarm, dualSlot, dualSlotGame]);
+
+    setResolvedSpecies(encounters);
+  }, [game, route, timeOfDay, swarmActive, dualSlotGame]);
 
   const speciesOptions = React.useMemo(
     () =>
@@ -337,33 +300,31 @@ const FormContent = () => {
     {
       label: "Time",
       input: (
-        <FormikSelect<FormState, "time">
-          name="time"
-          options={toOptions([...TIMES])}
+        <FormikSelect<FormState, "timeOfDay">
+          name="timeOfDay"
+          options={[
+            { label: "Day", value: "day" },
+            { label: "Night", value: "night" },
+          ]}
         />
       ),
     },
     {
       label: "Swarm",
-      input: <FormikSwitch<FormState> name="swarm" />,
+      input: <FormikSwitch<FormState> name="swarmActive" />,
     },
     {
-      label: "Dual Slot",
-      input: <FormikSwitch<FormState> name="dualSlot" />,
+      label: "Dual Slot Game",
+      input: (
+        <FormikSelect<FormState, "dualSlotGame">
+          name="dualSlotGame"
+          options={[
+            { label: "None", value: null },
+            ...toOptions(Gen3GameVersions),
+          ]}
+        />
+      ),
     },
-    ...(dualSlot
-      ? [
-          {
-            label: "Dual Slot Game",
-            input: (
-              <FormikSelect<FormState, "dualSlotGame">
-                name="dualSlotGame"
-                options={toOptions([...DUAL_SLOT_GAMES])}
-              />
-            ),
-          },
-        ]
-      : []),
     {
       label: "Species",
       input: (
@@ -468,13 +429,13 @@ export const PokeRadar4ShinySearcher = () => {
   );
 
   const onSubmit: RngToolSubmit<FormState> = async (opts) => {
-    const resolvedSpecies = await fetchRadarSpecies({
+    const resolvedSpecies = getEncounters({
       game: opts.game,
-      route: opts.route,
-      time: opts.time,
-      swarm: opts.swarm,
-      dualSlot: opts.dualSlot,
-      dualSlotGame: opts.dualSlotGame,
+      location: opts.route,
+      timeOfDay: opts.timeOfDay,
+      swarmActive: opts.swarmActive,
+      dualSlotCartridge: opts.dualSlotGame,
+      radarActive: false,
     });
     const encounter = resolvedSpecies.find(
       ({ species }) => species === opts.species,
@@ -485,8 +446,8 @@ export const PokeRadar4ShinySearcher = () => {
       sid: opts.sid,
       species: opts.species,
       offset: 0,
-      encounter_min_level: encounter?.min_level ?? 1,
-      encounter_max_level: encounter?.max_level ?? 100,
+      encounter_min_level: encounter?.minLevel ?? 1,
+      encounter_max_level: encounter?.maxLevel ?? 100,
       min_advance: opts.minAdvanceSpread,
       max_advance: opts.maxAdvanceSpread,
       min_delay: opts.minDelay,
