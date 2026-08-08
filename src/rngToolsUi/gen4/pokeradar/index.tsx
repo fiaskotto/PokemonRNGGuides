@@ -1,4 +1,5 @@
 import React from "react";
+import * as tst from "ts-toolbelt";
 import { z } from "zod";
 import {
   FormikNumberInput,
@@ -18,38 +19,28 @@ import {
   Nature,
   Gender,
   AbilityType,
-  Static4LeadInput,
   Ivs,
   SearchStatic4Opts,
   RadarShinyPatchResult,
   Patch,
   BattleResult,
+  RadarSpecies,
 } from "~/rngTools";
-import { formatSpeciesLabel } from "~/types/species";
-import { useWatch_UNSAFE } from "~/hooks/form";
+import { formatSpeciesLabel, species } from "~/types/species";
+import { useWatch } from "~/hooks/form";
 import { useBatchedTool } from "~/hooks/useBatchedTool";
 import { chunkIvs } from "~/utils/chunkIvs";
 import {
-  getPkmFilterIvFields,
+  getPkmFilterFields,
   getPkmFilterInitialValues,
   pkmFilterFieldsToRustInput,
   pkmFilterSchema,
-} from "~/rngToolsUi/workbench/components/pkmFilter";
-import { IvInput } from "~/components/ivInput";
+} from "~/components/pkmFilter";
+import { formatHex } from "~/utils/formatHex";
+import { RustOption } from "~/types";
 import { toOptions } from "~/utils/options";
-
-const IV_FILTER_MODE = "ivs";
-
-type Game = "Diamond" | "Pearl" | "Platinum";
-
-const GAMES = ["Diamond", "Pearl", "Platinum"] as const satisfies Game[];
-
-const RADAR_LEADS = [
-  "None",
-  "Synchronize",
-  "CuteharmM",
-  "CutecharmF",
-] as const satisfies Static4LeadInput[];
+import { leadAbilities } from "../gen4types";
+import { DpPt } from "~/types/games";
 
 const BATTLE_RESULTS = ["Catch", "Win"] as const satisfies BattleResult[];
 const TIMES = ["Day", "Night"] as const;
@@ -107,30 +98,24 @@ const ALLOWED_ROUTES = [
   "Route 230",
 ] as const;
 
-const ALLOWED_ROUTES_SET = new Set<string>(ALLOWED_ROUTES);
+type AllowedRoute = (typeof ALLOWED_ROUTES)[number];
 
-type RadarSpecies = {
-  species: Species;
-  min_level: number;
-  max_level: number;
-};
+const ALLOWED_ROUTES_SET = new Set<string>(ALLOWED_ROUTES);
 
 const Validator = z
   .object({
-    game: z.enum(GAMES),
+    game: z.enum(DpPt),
     tid: z.number().int().min(0).max(0xffff),
     sid: z.number().int().min(0).max(0xffff),
     minDelay: z.number().int().min(0),
     maxDelay: z.number().int().min(0),
-    lead: z.enum(RADAR_LEADS),
+    lead: z.enum(leadAbilities),
     minAdvanceSpread: z.number().int().min(0),
     maxAdvanceSpread: z.number().int().min(0),
     minAdvancePatch: z.number().int().min(0),
     maxAdvancePatch: z.number().int().min(0),
-    route: z.string().min(1, "Select a route"),
-    species: z
-      .string()
-      .min(1, "Select a species") as unknown as z.ZodType<Species>,
+    route: z.enum(ALLOWED_ROUTES),
+    species: z.enum(species),
     time: z.enum(TIMES),
     swarm: z.boolean(),
     dualSlot: z.boolean(),
@@ -138,19 +123,7 @@ const Validator = z
     chainCount: z.number().int().min(0),
     battleResult: z.enum(BATTLE_RESULTS),
   })
-  .extend(pkmFilterSchema.shape)
-  .refine((v) => v.minDelay <= v.maxDelay, {
-    message: "Min delay has to be <= max delay",
-    path: ["maxDelay"],
-  })
-  .refine((v) => v.minAdvanceSpread <= v.maxAdvanceSpread, {
-    message: "Min advance has to be <= max advance",
-    path: ["maxAdvanceSpread"],
-  })
-  .refine((v) => v.minAdvancePatch <= v.maxAdvancePatch, {
-    message: "Min advance has to be <= max advance",
-    path: ["maxAdvancePatch"],
-  });
+  .extend(pkmFilterSchema.shape);
 
 export type FormState = z.infer<typeof Validator>;
 
@@ -165,15 +138,14 @@ const initialValues: FormState = {
   maxAdvanceSpread: 3000,
   minAdvancePatch: 300,
   maxAdvancePatch: 400,
-  route: "",
-  species: "" as Species,
+  route: "Acuity Lakefront",
+  species: "Snover",
   time: "Day",
   swarm: false,
   dualSlot: false,
   dualSlotGame: "Ruby",
   chainCount: 40,
   battleResult: "Catch",
-  filter_level: 5,
   ...getPkmFilterInitialValues(),
 };
 
@@ -207,15 +179,22 @@ const toResultRow = (result: RadarShinyPatchResult): ResultRow => ({
   patches: result.patches,
 });
 
-const hex = (n: number, width = 8) =>
-  n.toString(16).padStart(width, "0").toUpperCase();
-
 const columns: ResultColumn<ResultRow>[] = [
-  { title: "Seed", dataIndex: "seed", monospace: true, render: (v) => hex(v) },
+  {
+    title: "Seed",
+    dataIndex: "seed",
+    monospace: true,
+    render: (value) => formatHex(value),
+  },
   { title: "Patch Advance", dataIndex: "patchAdvance" },
   { title: "Spread Advance", dataIndex: "advance" },
   { title: "Delay", dataIndex: "delay" },
-  { title: "PID", dataIndex: "pid", monospace: true, render: (v) => hex(v) },
+  {
+    title: "PID",
+    dataIndex: "pid",
+    monospace: true,
+    render: (value) => formatHex(value),
+  },
   { title: "Nature", dataIndex: "nature" },
   { title: "Ability", dataIndex: "ability" },
   { title: "Gender", dataIndex: "gender" },
@@ -229,7 +208,7 @@ const columns: ResultColumn<ResultRow>[] = [
 ];
 
 const fetchRadarSpecies = (opts: {
-  game: Game;
+  game: DpPt;
   route: string;
   time: (typeof TIMES)[number];
   swarm: boolean;
@@ -245,32 +224,33 @@ const fetchRadarSpecies = (opts: {
   });
 
 const FormContent = () => {
-  const [game, route, species, time, swarm, dualSlot, dualSlotGame] =
-    useWatch_UNSAFE<FormState>({
-      name: [
-        "game",
-        "route",
-        "species",
-        "time",
-        "swarm",
-        "dualSlot",
-        "dualSlotGame",
-      ],
+  const { game, route, species, time, swarm, dualSlot, dualSlotGame } =
+    useWatch({
+      validationSchema: Validator,
+      names: {
+        game: true,
+        route: true,
+        species: true,
+        time: true,
+        swarm: true,
+        dualSlot: true,
+        dualSlotGame: true,
+      },
     });
 
   const [locations, setLocations] = React.useState<string[]>([]);
 
   React.useEffect(() => {
-    if (!game) return;
+    if (game == null) {
+      return;
+    }
+
     let cancelled = false;
-    rngTools
-      .get_gen4_radar_locations(game)
-      .then((result: string[]) => {
-        if (!cancelled) setLocations(result);
-      })
-      .catch((err: unknown) => {
-        console.error("[radar] get_gen4_radar_locations failed:", err);
-      });
+    rngTools.get_gen4_radar_locations(game).then((result: string[]) => {
+      if (!cancelled) {
+        setLocations(result);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -279,29 +259,42 @@ const FormContent = () => {
   const routeOptions = React.useMemo(
     () =>
       locations
-        .filter((r) => ALLOWED_ROUTES_SET.has(r))
-        .sort((a, b) => a.localeCompare(b))
-        .map((r) => ({ label: r, value: r })),
+        .filter((route): route is AllowedRoute => ALLOWED_ROUTES_SET.has(route))
+        .sort((first, second) => first.localeCompare(second))
+        .map((route) => ({ label: route, value: route })),
     [locations],
   );
 
-  const [resolvedSpecies, setResolvedSpecies] = React.useState<RadarSpecies[]>(
+  type TempOverride = tst.O.Overwrite<RadarSpecies, { species: Species }>;
+  const [resolvedSpecies, setResolvedSpecies] = React.useState<TempOverride[]>(
     [],
   );
 
   React.useEffect(() => {
-    if (!game || !route) {
+    if (
+      game == null ||
+      route == null ||
+      time == null ||
+      swarm == null ||
+      dualSlot == null ||
+      dualSlotGame == null
+    ) {
       setResolvedSpecies([]);
       return;
     }
     let cancelled = false;
-    fetchRadarSpecies({ game, route, time, swarm, dualSlot, dualSlotGame })
-      .then((result) => {
-        if (!cancelled) setResolvedSpecies(result);
-      })
-      .catch((err: unknown) => {
-        console.error("[radar] get_gen4_radar_species failed:", err);
-      });
+    fetchRadarSpecies({
+      game,
+      route,
+      time,
+      swarm,
+      dualSlot,
+      dualSlotGame,
+    }).then((result) => {
+      if (!cancelled) {
+        setResolvedSpecies(result as unknown as TempOverride[]);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -309,20 +302,21 @@ const FormContent = () => {
 
   const speciesOptions = React.useMemo(
     () =>
-      resolvedSpecies.map((s) => ({
-        label: formatSpeciesLabel(s.species),
-        value: s.species,
+      resolvedSpecies.map(({ species }) => ({
+        label: formatSpeciesLabel(species),
+        value: species,
       })),
     [resolvedSpecies],
   );
-
-  const allowCuteCharm = true;
 
   const staticFields: Field[] = [
     {
       label: "Game",
       input: (
-        <FormikSelect<FormState> name="game" options={toOptions([...GAMES])} />
+        <FormikSelect<FormState, "game">
+          name="game"
+          options={toOptions(DpPt)}
+        />
       ),
     },
     {
@@ -336,12 +330,17 @@ const FormContent = () => {
     },
     {
       label: "Route",
-      input: <FormikSelect<FormState> name="route" options={routeOptions} />,
+      input: (
+        <FormikSelect<FormState, "route"> name="route" options={routeOptions} />
+      ),
     },
     {
       label: "Time",
       input: (
-        <FormikSelect<FormState> name="time" options={toOptions([...TIMES])} />
+        <FormikSelect<FormState, "time">
+          name="time"
+          options={toOptions([...TIMES])}
+        />
       ),
     },
     {
@@ -357,7 +356,7 @@ const FormContent = () => {
           {
             label: "Dual Slot Game",
             input: (
-              <FormikSelect<FormState>
+              <FormikSelect<FormState, "dualSlotGame">
                 name="dualSlotGame"
                 options={toOptions([...DUAL_SLOT_GAMES])}
               />
@@ -368,17 +367,18 @@ const FormContent = () => {
     {
       label: "Species",
       input: (
-        <FormikSelect<FormState> name="species" options={speciesOptions} />
+        <FormikSelect<FormState, "species">
+          name="species"
+          options={speciesOptions}
+        />
       ),
     },
     {
       label: "Lead",
       input: (
-        <FormikSelect<FormState>
+        <FormikSelect<FormState, "lead">
           name="lead"
-          options={toOptions([...RADAR_LEADS]).filter(
-            (o) => allowCuteCharm || o.value === "Synchronize",
-          )}
+          options={toOptions(leadAbilities)}
         />
       ),
     },
@@ -436,7 +436,7 @@ const FormContent = () => {
     {
       label: "Battle Result",
       input: (
-        <FormikSelect<FormState>
+        <FormikSelect<FormState, "battleResult">
           name="battleResult"
           options={toOptions([...BATTLE_RESULTS])}
         />
@@ -444,31 +444,12 @@ const FormContent = () => {
     },
   ];
 
-  const ivFields: Field[] = [
-    {
-      label: "Min IVs",
-      input: <IvInput<FormState> name="filter_min_ivs" />,
-    },
-    {
-      label: "Max IVs",
-      input: <IvInput<FormState> name="filter_max_ivs" />,
-    },
-  ];
+  const otherFilterFields = getPkmFilterFields<FormState>({
+    species: species ?? undefined,
+    displayShiny: false,
+  });
 
-  const otherFilterFields: Field[] = species
-    ? getPkmFilterIvFields<FormState>({ species })
-        .filter((f) => !/\bIV\b/.test(f.label) && !/shiny/i.test(f.label))
-        .map((f) => ({
-          label: f.label,
-          input: f.children,
-        }))
-    : [];
-
-  return (
-    <FormFieldTable
-      fields={[...staticFields, ...ivFields, ...otherFilterFields]}
-    />
-  );
+  return <FormFieldTable fields={[...staticFields, ...otherFilterFields]} />;
 };
 
 export const PokeRadar4ShinySearcher = () => {
@@ -482,77 +463,59 @@ export const PokeRadar4ShinySearcher = () => {
   });
 
   const filteredResults = React.useMemo(
-    () => results.filter((r) => r.patchAdvance < r.advance),
+    () => results.filter((res) => res.patchAdvance < res.advance),
     [results],
   );
 
   const onSubmit: RngToolSubmit<FormState> = async (opts) => {
-    try {
-      const resolvedSpecies = await fetchRadarSpecies({
-        game: opts.game,
-        route: opts.route,
-        time: opts.time,
-        swarm: opts.swarm,
-        dualSlot: opts.dualSlot,
-        dualSlotGame: opts.dualSlotGame,
-      });
-      const encounter = resolvedSpecies.find((s) => s.species === opts.species);
-      if (!encounter) {
-        console.warn(
-          "[radar] nessun match per la specie selezionata tra gli slot risolti:",
-          opts.species,
-          resolvedSpecies,
-        );
-      }
+    const resolvedSpecies = await fetchRadarSpecies({
+      game: opts.game,
+      route: opts.route,
+      time: opts.time,
+      swarm: opts.swarm,
+      dualSlot: opts.dualSlot,
+      dualSlotGame: opts.dualSlotGame,
+    });
+    const encounter = resolvedSpecies.find(
+      ({ species }) => species === opts.species,
+    );
 
-      const filter = {
-        ...(await pkmFilterFieldsToRustInput(
-          { species: opts.species, ivFilterMode: IV_FILTER_MODE },
-          opts,
-        )),
-        shiny: true,
-      };
+    const baseSearch: Omit<RustOption<SearchStatic4Opts>, "filter"> = {
+      tid: opts.tid,
+      sid: opts.sid,
+      species: opts.species,
+      offset: 0,
+      encounter_min_level: encounter?.min_level ?? 1,
+      encounter_max_level: encounter?.max_level ?? 100,
+      min_advance: opts.minAdvanceSpread,
+      max_advance: opts.maxAdvanceSpread,
+      min_delay: opts.minDelay,
+      max_delay: opts.maxDelay,
+      year: 2000,
+      month: null,
+      force_second: null,
+      lead: opts.lead,
+      method: "ShinyRadar",
+    };
 
-      const baseSearch: Omit<SearchStatic4Opts, "filter"> = {
-        tid: opts.tid,
-        sid: opts.sid,
-        species: opts.species,
-        offset: 0,
-        encounter_min_level: encounter?.min_level ?? 1,
-        encounter_max_level: encounter?.max_level ?? 100,
-        min_advance: opts.minAdvanceSpread,
-        max_advance: opts.maxAdvanceSpread,
-        min_delay: opts.minDelay,
-        max_delay: opts.maxDelay,
-        year: 2000,
-        month: null,
-        force_second: null,
-        lead: opts.lead,
-        method: "ShinyRadar",
-      };
+    const chunkedIvs = chunkIvs(opts.filter_min_ivs, opts.filter_max_ivs);
+    const searchOptsChunks = chunkedIvs.map(([minIvs, maxIvs]) => ({
+      search: {
+        ...baseSearch,
+        filter: {
+          ...pkmFilterFieldsToRustInput({ ...opts, filter_shiny: true }),
+          min_ivs: minIvs,
+          max_ivs: maxIvs,
+        },
+      },
+      patch_min_advance: opts.minAdvancePatch,
+      patch_max_advance: opts.maxAdvancePatch,
+      chain_count: opts.chainCount,
+      battle_result: opts.battleResult,
+      selected_shake: "Slow" as const,
+    }));
 
-      const chunkedIvs = chunkIvs(opts.filter_min_ivs, opts.filter_max_ivs);
-      const searchOptsChunks = chunkedIvs.map(([minIvs, maxIvs]) => ({
-        search: {
-          ...baseSearch,
-          filter: {
-            ...filter,
-            min_ivs: minIvs,
-            max_ivs: maxIvs,
-          },
-        } as SearchStatic4Opts,
-        patch_min_advance: opts.minAdvancePatch,
-        patch_max_advance: opts.maxAdvancePatch,
-        chain_count: opts.chainCount,
-        battle_result: opts.battleResult,
-        selected_shake: "Slow",
-      }));
-
-      await searchShinyPatches(searchOptsChunks);
-    } catch (err) {
-      console.error("[radar] onSubmit failed:", err);
-      throw err;
-    }
+    await searchShinyPatches(searchOptsChunks);
   };
 
   return (

@@ -53,7 +53,6 @@ import { TranslationHelperSelectGuide } from "~/rngToolsUi/translationHelper/sel
 import { TranslationHelperEditGuide } from "~/rngToolsUi/translationHelper/editGuide";
 import { ToolTranslationButton } from "~/rngToolsUi/translationHelper/toolTranslations";
 import { TranslationHelperSelectLanguage } from "~/rngToolsUi/translationHelper/selectLanguage";
-import { PokeRadar4PatchGrid } from "~/rngToolsUi/gen4/pokeradar/patchGrid";
 
 const nonTools = {
   br: MarkdownBreak,
