@@ -76,10 +76,10 @@ const initialValues: FormState = {
   tid: 0,
   sid: 0,
   minDelay: 700,
-  maxDelay: 3000,
+  maxDelay: 800,
   lead: "None",
   minAdvanceSpread: 550,
-  maxAdvanceSpread: 3000,
+  maxAdvanceSpread: 1000,
   minAdvancePatch: 300,
   maxAdvancePatch: 400,
   route: "Acuity Lakefront",
@@ -381,24 +381,34 @@ export const PokeRadar4ShinySearcher = () => {
     };
 
     const chunkedIvs = chunkIvs(opts.filter_min_ivs, opts.filter_max_ivs);
+    const chunkedSpreadAdvances = chunkRange(
+      [opts.minAdvanceSpread, opts.maxAdvanceSpread],
+      100,
+    );
     const chunkedPatchAdvances = chunkRange(
       [opts.minAdvancePatch, opts.maxAdvancePatch],
       100,
     );
 
     const combinedChunks = chunkedIvs.flatMap(([minIvs, maxIvs]) =>
-      chunkedPatchAdvances.map(([minPatch, maxPatch]) => ({
-        minIvs,
-        maxIvs,
-        minPatch,
-        maxPatch,
-      })),
+      chunkedSpreadAdvances.flatMap(([minSpread, maxSpread]) =>
+        chunkedPatchAdvances.map(([minPatch, maxPatch]) => ({
+          minIvs,
+          maxIvs,
+          minSpread,
+          maxSpread,
+          minPatch,
+          maxPatch,
+        })),
+      ),
     );
 
     const searchOptsChunks = combinedChunks.map(
-      ({ minIvs, maxIvs, minPatch, maxPatch }) => ({
+      ({ minIvs, maxIvs, minSpread, maxSpread, minPatch, maxPatch }) => ({
         search: {
           ...baseSearch,
+          min_advance: minSpread,
+          max_advance: maxSpread,
           filter: {
             ...pkmFilterFieldsToRustInput({ ...opts, filter_shiny: true }),
             min_ivs: minIvs,
