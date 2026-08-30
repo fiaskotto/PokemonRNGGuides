@@ -1,5 +1,4 @@
 import React from "react";
-import { useAtom } from "jotai";
 import { z } from "zod";
 import {
   Button,
@@ -103,7 +102,7 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
           numType="hex"
           errorMessage={
             seed == null
-              ? "Seleziona un risultato dal searcher qui sopra"
+              ? "Select a result from the Searcher to generate advances here."
               : undefined
           }
           value={seed}
