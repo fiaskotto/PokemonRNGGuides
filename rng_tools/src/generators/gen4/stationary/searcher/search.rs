@@ -45,13 +45,32 @@ macro_rules! search_seeds {
 pub fn search_static4(opts: &SearchStatic4Opts) -> Vec<Static4State> {
     match opts.method {
         Static4Method::One => search_seeds!(opts, get_method1_states),
-        Static4Method::DpptJ => search_seeds!(opts, get_methodjk_states::<DpptLogic, SetLevel>),
-        Static4Method::HgssK => search_seeds!(opts, get_methodjk_states::<HgssLogic, SetLevel>),
+        Static4Method::DpptJ => search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+            get_methodjk_states::<DpptLogic, SetLevel>(
+                lead, species, min, max, tid, sid, ivs, seed, false,
+            )
+        }),
+        Static4Method::HgssK => search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+            get_methodjk_states::<HgssLogic, SetLevel>(
+                lead, species, min, max, tid, sid, ivs, seed, false,
+            )
+        }),
         Static4Method::Honey => {
-            search_seeds!(opts, get_methodjk_states::<DpptLogic, ReversedHoneyLevel>)
+            search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+                get_methodjk_states::<DpptLogic, ReversedHoneyLevel>(
+                    lead, species, min, max, tid, sid, ivs, seed, false,
+                )
+            })
         }
         Static4Method::Radar => search_seeds!(opts, get_radar_states),
         Static4Method::ShinyRadar => search_seeds!(opts, get_radar_shiny_states),
+        Static4Method::DpptWild => {
+            search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+                get_methodjk_states::<DpptLogic, SetLevel>(
+                    lead, species, min, max, tid, sid, ivs, seed, true,
+                )
+            })
+        }
     }
 }
 
@@ -69,12 +88,12 @@ fn get_radar_states(
         Static4LeadInput::Pressure => vec![],
         Static4LeadInput::Synchronize => {
             get_methodjk_sync_state::<DpptLogic, SetLevel, GateOnCheck1>(
-                species, max_level, max_level, tid, sid, ivs, seed,
+                species, max_level, max_level, tid, sid, ivs, seed, false,
             )
             .collect()
         }
         _ => get_methodjk_states::<DpptLogic, SetLevel>(
-            lead, species, max_level, max_level, tid, sid, ivs, seed,
+            lead, species, max_level, max_level, tid, sid, ivs, seed, false,
         )
         .collect(),
     }
@@ -122,6 +141,7 @@ mod tests {
                 characteristic,
                 lead,
                 level,
+                encounter_slot: 0,
             });
         }
         results
@@ -167,6 +187,7 @@ mod tests {
 
                 // The level is not included in the static pokefinder output
                 level: 0,
+                encounter_slot: 0,
             });
         }
         results
@@ -288,6 +309,7 @@ mod tests {
                 54321,
                 ivs!(0 / 0 / 0 / 0 / 0 / 0),
                 LeadAbility::None,
+                0,
             );
 
             let results = SeedFilters {
@@ -316,7 +338,8 @@ mod tests {
                         shiny: false,
                         characteristic: Characteristic::LovesToEat,
                         lead: LeadAbility::None,
-                        level: 1
+                        level: 1,
+                        encounter_slot: 0
                     },
                     seed_time: SeedTime4 {
                         seed: 0x860c06ef,
@@ -341,6 +364,7 @@ mod tests {
                 54321,
                 ivs!(0 / 0 / 0 / 0 / 0 / 0),
                 LeadAbility::None,
+                0,
             );
 
             let results = SeedFilters {
@@ -369,7 +393,8 @@ mod tests {
                         shiny: false,
                         characteristic: Characteristic::LovesToEat,
                         lead: LeadAbility::None,
-                        level: 1
+                        level: 1,
+                        encounter_slot: 0
                     },
                     seed_time: SeedTime4 {
                         seed: 0x860c06ef,
