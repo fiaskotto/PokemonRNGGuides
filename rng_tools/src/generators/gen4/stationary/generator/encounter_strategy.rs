@@ -7,7 +7,8 @@ pub trait EncounterStrategy {
 }
 
 pub fn encounter_slot_from_roll(value: u16) -> u8 {
-    match value % 100 {
+    let scaled = ((value as u32) * 100) >> 16;
+    match scaled {
         0..=19 => 0,
         20..=39 => 1,
         40..=49 => 2,

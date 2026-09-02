@@ -108,6 +108,7 @@ type ResultRow = {
   level: number;
   delay: number;
   patches: Patch[];
+  encounterSlot: number;
 } & Ivs;
 
 const toResultRow = (result: RadarShinyPatchResult): ResultRow => {
@@ -125,6 +126,7 @@ const toResultRow = (result: RadarShinyPatchResult): ResultRow => {
     level: spread.level,
     delay: result.state.seed_time.delay,
     patches: result.patches,
+    encounterSlot: spread.encounter_slot,
   };
 };
 
@@ -139,6 +141,7 @@ export type SelectedShinyPatch = {
   lead: LeadAbility;
   species: (typeof species)[number];
   level: number;
+  encounterSlot: number;
 };
 
 type PokeRadar4ShinySearcherProps = {
@@ -392,6 +395,7 @@ export const PokeRadar4ShinySearcher: React.FC<PokeRadar4ShinySearcherProps> = (
               lead: searchMeta.lead,
               species: searchMeta.species,
               level: searchMeta.level,
+              encounterSlot: row.encounterSlot,
             })
           }
         >

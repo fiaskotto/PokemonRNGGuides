@@ -27,6 +27,7 @@ type PokeRadar4ChainStarterProps = {
   sid?: number;
   lead?: LeadAbility;
   species?: SpeciesName;
+  encounterSlot?: number;
   level?: number;
   initialMinAdvance?: number;
   initialMaxAdvance?: number;
@@ -36,6 +37,7 @@ type Result = {
   id: string;
   advance: number;
   species: SpeciesName;
+  encounterSlot: number;
 };
 
 const Validator = z.object({
@@ -73,6 +75,7 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
   sid,
   lead,
   species: targetSpecies,
+  encounterSlot,
   level,
   initialMinAdvance = 0,
   initialMaxAdvance = 0,
@@ -82,7 +85,7 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
 
   React.useEffect(() => {
     setResults([]);
-  }, [seed, targetSpecies]);
+  }, [seed, targetSpecies, encounterSlot]);
 
   const canGenerate =
     seed != null &&
@@ -90,45 +93,46 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
     sid != null &&
     lead != null &&
     targetSpecies != null &&
-    level != null;
+    level != null &&
+    encounterSlot != null;
 
-  const getFields = (t: Translations): Field[] => [
-    {
-      label: t["Seed"],
-      input: (
-        <NumberInput
-          disabled
-          name="seed"
-          numType="hex"
-          errorMessage={
-            seed == null
-              ? "Select a result from the Searcher to generate advances here."
-              : undefined
-          }
-          value={seed}
-        />
-      ),
-    },
-    {
-      label: t["Advances"],
-      input: (
-        <MinMaxContainer
-          min={
-            <FormikNumberInput<FormState>
-              name="minAdvances"
-              numType="decimal"
-            />
-          }
-          max={
-            <FormikNumberInput<FormState>
-              name="maxAdvances"
-              numType="decimal"
-            />
-          }
-        />
-      ),
-    },
-  ];
+    const getFields = (t: Translations): Field[] => [
+      {
+        label: t["Seed"],
+        input: (
+          <NumberInput
+            disabled
+            name="seed"
+            numType="hex"
+            errorMessage={
+              seed == null
+                ? "Select a result from the Searcher to generate advances here."
+                : undefined
+            }
+            value={seed}
+          />
+        ),
+      },
+      {
+        label: t["Advances"],
+        input: (
+          <MinMaxContainer
+            min={
+              <FormikNumberInput<FormState>
+                name="minAdvances"
+                numType="decimal"
+              />
+            }
+            max={
+              <FormikNumberInput<FormState>
+                name="maxAdvances"
+                numType="decimal"
+              />
+            }
+          />
+        ),
+      },
+    ];
 
   const onSubmit = async (opts: FormState) => {
     if (!canGenerate) {
@@ -144,7 +148,7 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
       encounter_max_level: level,
       initial_advances: opts.minAdvances,
       max_advances: Math.max(0, opts.maxAdvances - opts.minAdvances),
-      method: "DpptJ",
+      method: "DpptWild",
       lead,
       seed,
       filter: allowAllFilter,
@@ -152,13 +156,16 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
       filter_characteristic: null,
     });
 
-    const mappedResults = pkmList.map(
-      (pkm): Result => ({
-        id: `${pkm.advance}`,
-        advance: pkm.advance,
-        species: targetSpecies,
-      }),
-    );
+    const mappedResults = pkmList
+      .filter((pkm) => pkm.encounter_slot === encounterSlot)
+      .map(
+        (pkm): Result => ({
+          id: `${pkm.advance}`,
+          advance: pkm.advance,
+          species: targetSpecies,
+          encounterSlot: pkm.encounter_slot,
+        }),
+      );
 
     setResults(mappedResults);
   };
@@ -170,7 +177,7 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
   return (
     <Flex vertical gap={16}>
       <RngToolForm<FormState, Result>
-        key={`${seed}-${targetSpecies}`}
+        key={`${seed}-${targetSpecies}-${encounterSlot}`}
         initialValues={getInitialValues(initialMinAdvance, initialMaxAdvance)}
         disableGenerate={!canGenerate}
         submitTrackerId="pokeradar4_chain_starter_generate"

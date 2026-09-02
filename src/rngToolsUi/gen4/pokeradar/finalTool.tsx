@@ -40,6 +40,7 @@ export const PokeRadar4 = () => {
           lead={selection?.lead}
           species={selection?.species}
           level={selection?.level}
+          encounterSlot={selection?.encounterSlot}
           initialMinAdvance={0}
           initialMaxAdvance={chainStarterMaxAdvance}
         />
