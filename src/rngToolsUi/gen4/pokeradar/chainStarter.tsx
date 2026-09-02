@@ -96,43 +96,43 @@ export const PokeRadar4ChainStarter: React.FC<PokeRadar4ChainStarterProps> = ({
     level != null &&
     encounterSlot != null;
 
-    const getFields = (t: Translations): Field[] => [
-      {
-        label: t["Seed"],
-        input: (
-          <NumberInput
-            disabled
-            name="seed"
-            numType="hex"
-            errorMessage={
-              seed == null
-                ? "Select a result from the Searcher to generate advances here."
-                : undefined
-            }
-            value={seed}
-          />
-        ),
-      },
-      {
-        label: t["Advances"],
-        input: (
-          <MinMaxContainer
-            min={
-              <FormikNumberInput<FormState>
-                name="minAdvances"
-                numType="decimal"
-              />
-            }
-            max={
-              <FormikNumberInput<FormState>
-                name="maxAdvances"
-                numType="decimal"
-              />
-            }
-          />
-        ),
-      },
-    ];
+  const getFields = (t: Translations): Field[] => [
+    {
+      label: t["Seed"],
+      input: (
+        <NumberInput
+          disabled
+          name="seed"
+          numType="hex"
+          errorMessage={
+            seed == null
+              ? "Select a result from the Searcher to generate advances here."
+              : undefined
+          }
+          value={seed}
+        />
+      ),
+    },
+    {
+      label: t["Advances"],
+      input: (
+        <MinMaxContainer
+          min={
+            <FormikNumberInput<FormState>
+              name="minAdvances"
+              numType="decimal"
+            />
+          }
+          max={
+            <FormikNumberInput<FormState>
+              name="maxAdvances"
+              numType="decimal"
+            />
+          }
+        />
+      ),
+    },
+  ];
 
   const onSubmit = async (opts: FormState) => {
     if (!canGenerate) {

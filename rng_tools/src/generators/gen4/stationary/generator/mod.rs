@@ -474,7 +474,7 @@ mod test {
                 pokefinder_static!(CHATOT, "test_data/methodj/cute_charm_genderless.txt");
             assert_list_eq!(results, expected);
         }
-        
+
         #[test]
         fn debug_wild_slot_0() {
             let opts = Gen4StaticOpts {
@@ -497,7 +497,7 @@ mod test {
             for pkm in &results {
                 if pkm.encounter_slot == 0 {
                     println!("advance={} slot={}", pkm.advance, pkm.encounter_slot);
-                }            
+                }
             }
         }
     }

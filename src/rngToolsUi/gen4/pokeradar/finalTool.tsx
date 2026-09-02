@@ -7,7 +7,9 @@ import { PokeRadar4ChainStarter } from "./chainStarter";
 const CHAIN_STARTER_ADVANCE_BUFFER = 100;
 
 export const PokeRadar4 = () => {
-  const [selection, setSelection] = React.useState<SelectedShinyPatch | undefined>(undefined);
+  const [selection, setSelection] = React.useState<
+    SelectedShinyPatch | undefined
+  >(undefined);
 
   const chainStarterRef = React.useRef<HTMLDivElement>(null);
 

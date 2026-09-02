@@ -1,8 +1,8 @@
 use crate::gen4::LeadAbility;
 use crate::gen4::calc_level::LevelCalculator;
 use crate::gen4::game_logic::GameSpecificLogic;
-use crate::gen4::stationary::searcher::base_state::BaseStatic4State;
 use crate::gen4::stationary::generator::encounter_strategy::encounter_slot_from_roll;
+use crate::gen4::stationary::searcher::base_state::BaseStatic4State;
 use crate::rng::Rng;
 use crate::rng::lcrng::{Pokerng, PokerngR};
 use crate::{Ivs, Nature, Species};

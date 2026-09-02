@@ -45,16 +45,20 @@ macro_rules! search_seeds {
 pub fn search_static4(opts: &SearchStatic4Opts) -> Vec<Static4State> {
     match opts.method {
         Static4Method::One => search_seeds!(opts, get_method1_states),
-        Static4Method::DpptJ => search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
-            get_methodjk_states::<DpptLogic, SetLevel>(
-                lead, species, min, max, tid, sid, ivs, seed, false,
-            )
-        }),
-        Static4Method::HgssK => search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
-            get_methodjk_states::<HgssLogic, SetLevel>(
-                lead, species, min, max, tid, sid, ivs, seed, false,
-            )
-        }),
+        Static4Method::DpptJ => {
+            search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+                get_methodjk_states::<DpptLogic, SetLevel>(
+                    lead, species, min, max, tid, sid, ivs, seed, false,
+                )
+            })
+        }
+        Static4Method::HgssK => {
+            search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
+                get_methodjk_states::<HgssLogic, SetLevel>(
+                    lead, species, min, max, tid, sid, ivs, seed, false,
+                )
+            })
+        }
         Static4Method::Honey => {
             search_seeds!(opts, |lead, species, min, max, tid, sid, ivs, seed| {
                 get_methodjk_states::<DpptLogic, ReversedHoneyLevel>(

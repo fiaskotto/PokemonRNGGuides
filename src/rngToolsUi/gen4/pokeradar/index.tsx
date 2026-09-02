@@ -351,9 +351,9 @@ const FormContent = () => {
   );
 };
 
-export const PokeRadar4ShinySearcher: React.FC<PokeRadar4ShinySearcherProps> = ({
-  onSelectResult,
-}) => {
+export const PokeRadar4ShinySearcher: React.FC<
+  PokeRadar4ShinySearcherProps
+> = ({ onSelectResult }) => {
   // Tracks the search parameters used for the most recent search, since
   // those aren't part of each individual result row. Needed both for the
   // patch grid (chainCount/battleResult) and for the chain starter
